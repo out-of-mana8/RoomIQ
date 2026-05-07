@@ -10,6 +10,7 @@
 
 - [Overview](#overview)
 - [3D Renders](#3d-renders)
+- [PCB Layout](#pcb-layout)
 - [Sensor Suite](#sensor-suite)
 - [Hardware Architecture](#hardware-architecture)
   - [MCU — ESP32-C6-WROOM-1-N8](#mcu--esp32-c6-wroom-1-n8)
@@ -18,7 +19,6 @@
   - [Output Peripherals](#output-peripherals)
   - [Power System](#power-system)
 - [Schematic](#schematic)
-- [PCB Layout](#pcb-layout)
 - [GPIO Map](#gpio-map)
 - [Bill of Materials](#bill-of-materials)
 - [Firmware Architecture](#firmware-architecture)
@@ -54,16 +54,65 @@ This lets the system distinguish *occupant discomfort* (amber) from *unsafe cond
 
 ### Front — Component Side
 
-![RoomIQ PCB Front](3D_Render_Front.png)
+![RoomIQ PCB Front](images/3D_Render_Front.png)
 
-> **Zones (left → right):** Power & LDO · ESP32-C6-WROOM-1 module · CO₂ sensor · 2.0" TFT display  
+> **Zones (left → right):** Power & LDO · ESP32-C6-WROOM-1 module · CO₂ sensor · 2.0" TFT display
 > **Bottom row:** Analog mic front-end · Temp/Humidity (SHT41) · Ambient light (OPT3001) · Three user buttons
 
 ### Back — Routing Side
 
-![RoomIQ PCB Back](3D_Render_Back.png)
+![RoomIQ PCB Back](images/3D_Render_Back.png)
 
 > Clean bottom layer with GND copper pour acting as an analog shield. TFT display connector header exposed along the bottom edge.
+
+---
+
+## PCB Layout
+
+### Top Layer
+
+![PCB Top Layer](images/PCB_Top_Layer.png)
+
+> Red = signal traces on top copper. Yellow = silkscreen / component outlines. All functional zones labeled. GND thermal vias visible under the LDO pad.
+
+### Bottom Layer
+
+![PCB Bottom Layer](images/PCB_Bottom_Layer.png)
+
+> Blue = GND copper pour on bottom. Red = signal vias and through-hole pads. The solid GND plane acts as an RF and analog shield across the full board.
+
+### Zone Partitioning
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│  [Power]   [ESP32-C6-WROOM-1]   [CO₂ SCD40]         [TFT Display] │
+│  USB-C                                                  320×240 IPS │
+│  ESD diode  ←──── I²C bus (IO10/IO11) ────→                        │
+│  AP7361C                                                            │
+│                                                                     │
+│  [Analog Mic Zone]   [SHT41]  [OPT3001]              [Display hdr] │
+│  S15OT421            Temp/RH  Ambient                               │
+│  MCP6001                      Light                                 │
+│  GND star-tied                                                      │
+│                                                                     │
+│  [BTN_A]  [BTN_B]  [BTN_C]             [WS2812B]                   │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Critical Routing Rules
+
+| Rule | Detail |
+|------|--------|
+| Analog traces | Top Cu only; bottom GND pour acts as shield; zero digital crossings in analog zone |
+| SPI bus | SCK/MOSI/MISO length-matched ±5 mm; 100 Ω series on SCK if trace > 10 cm |
+| I²C bus | Short stubs to each sensor; pull-ups at midpoint; total length < 10 cm |
+| Decoupling caps | ≤ 2 mm from supply pin; via at pad directly to GND plane |
+| SCD40 | No Cu pour under bottom pads except required DNC pads (Sensirion DS §4.2) |
+| OPT3001 | No SMD parts within 2× component height of optical aperture (TI DS §8.5) |
+| ESP32 antenna | 3 mm Cu keep-out on all layers under WROOM antenna region |
+| SHT41 placement | > 1 cm from SCD40/LDO to minimize thermal coupling during CO₂ measurement peaks |
+
+Full layer drawings: [`hardware/Drawings.pdf`](hardware/Drawings.pdf)
 
 ---
 
@@ -142,7 +191,7 @@ The chain converts acoustic pressure at the MEMS capsule into a 12-bit digital v
 #### WS2812B-4020 RGB Status LED
 - **Protocol:** Single-wire NRZ 800 kbps via ESP32-C6 RMT peripheral on IO8
 - **Supply:** 5 V VBUS direct — bypasses LDO to reduce thermal load
-- **Level shift:** BSS138 N-MOSFET (IO8 → 5 V) required — WS2812B V_IH = 3.5 V min; ESP32-C6 V_OH ≈ 3.0–3.1 V (insufficient without level-shifter)
+- **Level shift:** BSS138 N-MOSFET (IO8 → 5 V) required — WS2812B V_IH = 3.5 V min; ESP32-C6 V_OH ≈ 3.0–3.1 V at light load (insufficient without level-shifter)
 - **Brightness:** ≤ 10 % duty → ~6 mA draw; 300 Ω series resistor for overshoot suppression
 - **Reset:** 280 µs low; handled by RMT frame gap
 
@@ -172,13 +221,13 @@ USB-C 5V VBUS
 | Load | Power Dissipated | ΔT_J | Status |
 |------|-----------------|------|--------|
 | Average (~200 mA) | 1.7 V × 0.2 A = 0.34 W | ≈ 37 °C | ✅ Safe (T_J max = 125 °C) |
-| Peak (~495 mA, Wi-Fi TX + SCD40 peak + TFT) | 0.84 W | ≈ 92 °C | ⚠️ Copper heat-spreader pad required |
+| Peak (~495 mA, Wi-Fi TX + SCD40 + TFT) | 0.84 W | ≈ 92 °C | ⚠️ Copper heat-spreader pad required |
 
 ---
 
 ## Schematic
 
-The full schematic is available in [`Schematic.pdf`](Schematic.pdf), exported from EasyEDA.
+Full schematic: [`hardware/Schematic.pdf`](hardware/Schematic.pdf)
 
 **Major sub-circuits:**
 - **ESP32-C6-WROOM-1-N8** — center; decoupling caps on every VDD/GND pair; RESET (EN) with 5.1 kΩ pull-up + 100 nF; BOOT strapping via IO9
@@ -187,47 +236,8 @@ The full schematic is available in [`Schematic.pdf`](Schematic.pdf), exported fr
 - **MEMS mic & analog front-end** — see signal chain above
 - **I²C sensor cluster** — SHT41, SCD40 (VDD+VDDH tied), OPT3001; 4.7 kΩ pull-ups at midpoint of bus
 - **TFT display header** — SPI2 signals routed to right-edge connector; CD74HC4050 level-shifting on the breakout
-- **WS2812B** — IO8 → BSS138 N-MOSFET level-shifter → 300 Ω → LED DIN; 330 Ω + 470 Ω status indicator resistors
-- **User buttons** — EN (reset), BOOT (IO9), BTN_A (IO18), BTN_B (IO19), BTN_C (IO21); each with 10 kΩ pull-up + 100 nF RC debounce (τ = 1 ms)
-
----
-
-## PCB Layout
-
-Full top and bottom layer drawings are in [`Drawings.pdf`](Drawings.pdf).
-
-**Board outline:** 96.5 × 63.5 mm (3.8" × 2.5") · 2-layer · JLCPCB design rules · DRC clean
-
-### Zone Partitioning
-
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│  [Power]   [ESP32-C6-WROOM-1]   [CO₂ SCD40]         [TFT Display] │
-│  USB-C                                                  320×240 IPS │
-│  ESD diode  ←──── I²C bus (IO10/IO11) ────→                        │
-│  AP7361C                                                            │
-│                                                                     │
-│  [Analog Mic Zone]   [SHT41]  [OPT3001]              [Display hdr] │
-│  S15OT421            Temp/RH  Ambient                               │
-│  MCP6001                      Light                                 │
-│  GND star-tied                                                      │
-│                                                                     │
-│  [BTN_A]  [BTN_B]  [BTN_C]             [WS2812B]                   │
-└─────────────────────────────────────────────────────────────────────┘
-```
-
-### Critical Routing Rules
-
-| Rule | Detail |
-|------|--------|
-| Analog traces | Top Cu only; bottom GND pour acts as shield; zero digital crossings in analog zone |
-| SPI bus | SCK/MOSI/MISO length-matched ±5 mm; 100 Ω series on SCK if trace > 10 cm |
-| I²C bus | Short stubs to each sensor; pull-ups at midpoint; total length < 10 cm |
-| Decoupling caps | ≤ 2 mm from supply pin; via at pad directly to GND plane |
-| SCD40 | No Cu pour under bottom pads except required DNC pads (Sensirion DS §4.2) |
-| OPT3001 | No SMD parts within 2× component height of optical aperture (TI DS §8.5) |
-| ESP32 antenna | 3 mm Cu keep-out on all layers under WROOM antenna region |
-| SHT41 placement | > 1 cm from SCD40/LDO to minimize thermal coupling during CO₂ measurement peaks |
+- **WS2812B** — IO8 → BSS138 N-MOSFET level-shifter → 300 Ω → LED DIN; status indicator resistors
+- **User buttons** — EN (reset), BOOT (IO9), BTN_A (IO18), BTN_B (IO19), BTN_C (IO21); 10 kΩ pull-up + 100 nF RC debounce (τ = 1 ms) each
 
 ---
 
@@ -286,10 +296,10 @@ Full top and bottom layer drawings are in [`Drawings.pdf`](Drawings.pdf).
 | Tactile switch 6 mm SMD | SW1020CT-ND | 5 | $0.30 | EN, BOOT, BTN A/B/C |
 | PCB, 2-layer | JLCPCB (custom Gerber) | 1 | $8.00 | 96.5 × 63.5 mm |
 
-**Estimated single-unit BOM cost: ~$58–65 USD**  
+**Estimated single-unit BOM cost: ~$58–65 USD**
 Dominant costs: SCD40 ($14.90) + TFT display ($14.95). Volume pricing reduces both significantly.
 
-Full spreadsheet: [`BOM.xlsx`](BOM.xlsx)
+Full spreadsheet: [`hardware/BOM.xlsx`](hardware/BOM.xlsx)
 
 ---
 
@@ -341,7 +351,7 @@ Full spreadsheet: [`BOM.xlsx`](BOM.xlsx)
 
 ### Sensor Polling Loop
 
-The firmware uses a non-blocking, time-sliced architecture:
+Non-blocking, time-sliced architecture:
 
 - **Every 5 s:** Poll I²C sensors, retrieve DMA audio buffer, apply digital A-weighting, evaluate thresholds, update TFT + WS2812B immediately
 - **Every 60 s:** Average the 12 buffered readings, append to SD CSV, push JSON over Wi-Fi — decoupled from the fast loop to protect the LDO thermal budget and minimize SD flash wear
@@ -386,7 +396,7 @@ void state_machine_sense() {
 
 ### Threshold Logic
 
-Three-tier evaluation (user → ASHRAE → WELL):
+Three-tier evaluation — user limits → ASHRAE 55-2023 → WELL v2:
 
 | Parameter | User (example) | ASHRAE 55-2023 | WELL v2 | Alert Action |
 |-----------|---------------|----------------|---------|--------------|
@@ -444,23 +454,32 @@ Three-tier evaluation (user → ASHRAE → WELL):
 
 ```
 RoomIQ/
-├── README.md               ← This file
-├── Schematic.pdf           ← Full EasyEDA schematic export
-├── Drawings.pdf            ← PCB top + bottom layer drawings
-├── Gerber.zip              ← JLCPCB-ready Gerber files (ready to order)
-├── BOM.xlsx                ← Bill of materials spreadsheet
-├── 3D_Render_Front.png     ← 3D render — component side
-├── 3D_Render_Back.png      ← 3D render — routing side
-└── Datasheets/
-    ├── esp32-c6_datasheet_en.pdf
-    ├── CD_DS_SCD40_SCD41_Datasheet_D1.pdf
-    ├── opt3001-q1 (1).pdf
-    ├── AP7361C.pdf
-    ├── MCP6001-1R-1U-2-4-1-MHz-Low-Power-Op-Amp-DS20001733L.pdf
-    ├── S15OT421-017.pdf
-    ├── ws2812b-4020.pdf
-    └── 2-0-inch-320-x-240-color-ips-tft-display.pdf
+├── README.md
+├── .gitignore
+├── images/
+│   ├── 3D_Render_Front.png     ← 3D render, component side
+│   ├── 3D_Render_Back.png      ← 3D render, routing side
+│   ├── PCB_Top_Layer.png       ← Top copper + silkscreen
+│   └── PCB_Bottom_Layer.png    ← Bottom GND pour
+└── hardware/
+    ├── Schematic.pdf           ← Full EasyEDA schematic
+    ├── Drawings.pdf            ← PCB layer drawings
+    ├── Gerber.zip              ← JLCPCB-ready fabrication files
+    └── BOM.xlsx                ← Bill of materials
 ```
+
+### Component Datasheets
+
+| Component | Datasheet |
+|-----------|-----------|
+| ESP32-C6-WROOM-1 | [Espressif DS v1.5](https://www.espressif.com/sites/default/files/documentation/esp32-c6_datasheet_en.pdf) |
+| Sensirion SCD40 | [Sensirion DS v1.3](https://sensirion.com/media/documents/48C4B7FB/64C134E7/Sensirion_SCD4x_Datasheet.pdf) |
+| Sensirion SHT41 | [Sensirion DS](https://sensirion.com/media/documents/33C09C07/622B9FC5/Datasheet_SHT4x.pdf) |
+| TI OPT3001 | [TI SBOS853C](https://www.ti.com/lit/ds/symlink/opt3001.pdf) |
+| Microchip MCP6001 | [DS20001733L](https://ww1.microchip.com/downloads/en/DeviceDoc/MCP6001-1R-1U-2-4-1-MHz-Low-Power-Op-Amp-DS20001733L.pdf) |
+| Goermicro S15OT421 | [Spec v3.0](https://www.goermicro.com) |
+| WorldSemi WS2812B-4020 | [DS v1.2](https://cdn-shop.adafruit.com/product-files/4684/4684_WS2812B-4020.pdf) |
+| Diodes Inc AP7361C | [Datasheet](https://www.diodes.com/assets/Datasheets/AP7361C.pdf) |
 
 ---
 

@@ -2,6 +2,10 @@
 RoomIQ_Slides.pdf
 RoomIQ_Final Report ECE 4275.pdf
 
+# Component datasheets — available from manufacturers directly
+Datasheets/
+datasheets/
+
 # OS / editor noise
 .DS_Store
 Thumbs.db
