@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RoomIQ — Indoor Environmental Quality Monitor</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #07101f;
+      --surface:   #0d1a2e;
+      --surface2:  #112039;
+      --gold:      #f0b429;
+      --blue:      #4fc3f7;
+      --green:     #4ade80;
+      --amber:     #fb923c;
+      --red:       #f87171;
+      --text:      #e2e8f0;
+      --muted:     #64748b;
+      --border:    rgba(255,255,255,0.07);
+      --radius:    12px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      font-size: 16px;
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--gold); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Nav ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 2rem;
+      height: 56px;
+      background: rgba(7,16,31,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo {
+      font-weight: 700; font-size: 1.05rem; letter-spacing: 0.02em;
+      color: var(--text);
+    }
+    .nav-logo span { color: var(--gold); }
+    .nav-links { display: flex; gap: 1.75rem; }
+    .nav-links a { color: var(--muted); font-size: 0.9rem; transition: color .2s; }
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+
+    /* ── Hero ── */
+    .hero {
+      min-height: 100vh;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      text-align: center;
+      padding: 6rem 2rem 4rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 80% 60% at 50% 40%, rgba(79,195,247,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-badge {
+      display: inline-block;
+      padding: 0.3rem 0.9rem;
+      border: 1px solid rgba(240,180,41,0.4);
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 1.5rem;
+    }
+    .hero h1 {
+      font-size: clamp(2.4rem, 6vw, 4rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 1.25rem;
+    }
+    .hero h1 span { color: var(--gold); }
+    .hero-sub {
+      font-size: clamp(1rem, 2vw, 1.15rem);
+      color: var(--muted);
+      max-width: 640px;
+      margin: 0 auto 2.5rem;
+    }
+    .hero-chips {
+      display: flex; flex-wrap: wrap; gap: 0.6rem; justify-content: center;
+      margin-bottom: 3rem;
+    }
+    .chip {
+      padding: 0.3rem 0.85rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .hero-img {
+      width: 100%; max-width: 820px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: 0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px rgba(240,180,41,0.1);
+    }
+
+    /* ── Stats strip ── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+    .stat {
+      padding: 2rem 1.5rem;
+      text-align: center;
+      border-right: 1px solid var(--border);
+    }
+    .stat:last-child { border-right: none; }
+    .stat-val {
+      font-size: 2rem; font-weight: 800;
+      color: var(--gold); line-height: 1;
+      margin-bottom: 0.4rem;
+    }
+    .stat-label { font-size: 0.82rem; color: var(--muted); }
+
+    /* ── Sections ── */
+    section { padding: 5rem 2rem; max-width: 1100px; margin: 0 auto; }
+    .section-label {
+      font-size: 0.75rem; font-weight: 700;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--gold); margin-bottom: 0.6rem;
+    }
+    h2 {
+      font-size: clamp(1.6rem, 3vw, 2.2rem);
+      font-weight: 800; letter-spacing: -0.02em;
+      margin-bottom: 1rem;
+    }
+    .lead {
+      color: var(--muted); max-width: 680px;
+      font-size: 1.05rem; margin-bottom: 2.5rem;
+    }
+
+    /* ── Board gallery ── */
+    .board-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    .board-card {
+      position: relative; overflow: hidden;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      cursor: pointer;
+    }
+    .board-card img {
+      width: 100%; display: block;
+      transition: transform .4s ease;
+    }
+    .board-card:hover img { transform: scale(1.03); }
+    .board-card-label {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      padding: 0.6rem 1rem;
+      background: linear-gradient(transparent, rgba(7,16,31,0.9));
+      font-size: 0.82rem; color: var(--muted);
+      font-weight: 500;
+    }
+
+    /* ── Schematic ── */
+    .schematic-embed {
+      width: 100%;
+      height: 680px;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+      overflow: hidden;
+    }
+    .schematic-embed iframe {
+      width: 100%; height: 100%;
+      border: none;
+    }
+    .schematic-fallback {
+      display: none;
+      padding: 3rem; text-align: center;
+    }
+    .callouts {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+    .callout {
+      padding: 1.25rem 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      border-left: 3px solid var(--gold);
+    }
+    .callout-title {
+      font-size: 0.85rem; font-weight: 700;
+      color: var(--gold); margin-bottom: 0.4rem;
+    }
+    .callout p { font-size: 0.88rem; color: var(--muted); line-height: 1.55; }
+
+    /* ── PCB layers ── */
+    .layers-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    .layer-card {
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      background: var(--surface);
+    }
+    .layer-card img { width: 100%; display: block; }
+    .layer-info { padding: 1rem 1.25rem; }
+    .layer-name {
+      font-size: 0.8rem; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      margin-bottom: 0.35rem;
+    }
+    .layer-name.top { color: #f87171; }
+    .layer-name.bot { color: #4fc3f7; }
+    .layer-info p { font-size: 0.85rem; color: var(--muted); }
+
+    /* ── Sensors ── */
+    .sensor-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1rem;
+    }
+    .sensor-card {
+      padding: 1.5rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      transition: border-color .2s;
+    }
+    .sensor-card:hover { border-color: rgba(240,180,41,0.3); }
+    .sensor-icon { font-size: 1.8rem; margin-bottom: 0.75rem; }
+    .sensor-param {
+      font-size: 0.75rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--gold); margin-bottom: 0.25rem;
+    }
+    .sensor-name { font-weight: 600; margin-bottom: 0.5rem; }
+    .sensor-spec { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.25rem; }
+    .sensor-std {
+      display: inline-block; margin-top: 0.5rem;
+      font-size: 0.75rem; padding: 0.2rem 0.6rem;
+      background: rgba(240,180,41,0.1);
+      border: 1px solid rgba(240,180,41,0.2);
+      border-radius: 999px; color: var(--gold);
+    }
+
+    /* ── Signal chain ── */
+    .chain {
+      display: flex; flex-wrap: wrap;
+      align-items: center; gap: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      margin-bottom: 1.5rem;
+      overflow-x: auto;
+    }
+    .chain-step {
+      display: flex; flex-direction: column;
+      align-items: center; text-align: center;
+      flex-shrink: 0;
+    }
+    .chain-box {
+      padding: 0.6rem 1rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.8rem; font-weight: 600;
+      white-space: nowrap;
+    }
+    .chain-box.highlight { border-color: rgba(240,180,41,0.5); color: var(--gold); }
+    .chain-sub { font-size: 0.72rem; color: var(--muted); margin-top: 0.35rem; max-width: 100px; }
+    .chain-arrow {
+      flex-shrink: 0;
+      padding: 0 0.5rem;
+      color: var(--muted); font-size: 1.1rem;
+      align-self: flex-start; margin-top: 0.6rem;
+    }
+    .chain-detail {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 0.75rem;
+    }
+    .chain-row {
+      display: flex; gap: 0.75rem; align-items: flex-start;
+      padding: 0.9rem 1.1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .chain-num {
+      width: 22px; height: 22px;
+      border-radius: 50%;
+      background: var(--gold); color: var(--bg);
+      font-size: 0.72rem; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 1px;
+    }
+    .chain-row-body { font-size: 0.85rem; }
+    .chain-row-title { font-weight: 600; margin-bottom: 0.2rem; }
+    .chain-row-desc { color: var(--muted); line-height: 1.45; }
+
+    /* ── Alert thresholds ── */
+    .threshold-table {
+      width: 100%; border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+    .threshold-table th {
+      text-align: left; padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.75rem; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase;
+      color: var(--muted);
+    }
+    .threshold-table td {
+      padding: 0.85rem 1rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .threshold-table tr:last-child td { border-bottom: none; }
+    .threshold-table tr:hover td { background: var(--surface); }
+    .param-name { font-weight: 600; }
+    .alert-badge {
+      display: inline-flex; align-items: center; gap: 0.3rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 999px;
+      font-size: 0.75rem; font-weight: 600;
+    }
+    .alert-amber { background: rgba(251,146,60,0.15); color: var(--amber); }
+    .alert-red   { background: rgba(248,113,113,0.15); color: var(--red); }
+    .alert-yellow{ background: rgba(240,180,41,0.15); color: var(--gold); }
+
+    /* ── Firmware ── */
+    .state-machine {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 2rem;
+      overflow-x: auto;
+    }
+    .state-machine pre {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 0.82rem;
+      line-height: 1.6;
+      color: #94a3b8;
+      white-space: pre;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 3rem 2rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+    footer .footer-links { display: flex; gap: 1.5rem; justify-content: center; margin-top: 1rem; }
+    footer .footer-links a { color: var(--muted); transition: color .2s; }
+    footer .footer-links a:hover { color: var(--text); text-decoration: none; }
+
+    /* ── Divider ── */
+    hr { border: none; border-top: 1px solid var(--border); }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      .board-grid, .layers-grid { grid-template-columns: 1fr; }
+      .nav-links { display: none; }
+      .chain { flex-direction: column; }
+      .chain-arrow { transform: rotate(90deg); }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Nav -->
+<nav>
+  <div class="nav-logo">Room<span>IQ</span></div>
+  <div class="nav-links">
+    <a href="#board">Board</a>
+    <a href="#schematic">Schematic</a>
+    <a href="#sensors">Sensors</a>
+    <a href="#firmware">Firmware</a>
+    <a href="https://github.com/out-of-mana8/RoomIQ">GitHub</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-badge">Open Hardware · ECE 4275</div>
+  <h1>Room<span>IQ</span></h1>
+  <p class="hero-sub">
+    A compact, self-contained mixed-signal PCB that monitors five indoor environmental
+    parameters and evaluates them against ASHRAE 55-2023 and WELL Building Standard v2.
+  </p>
+  <div class="hero-chips">
+    <span class="chip">ESP32-C6 · RISC-V @ 160 MHz</span>
+    <span class="chip">Wi-Fi 6 + BLE 5.3</span>
+    <span class="chip">2-layer · 96.5 × 63.5 mm</span>
+    <span class="chip">EasyEDA · JLCPCB</span>
+    <span class="chip">~$60 BOM</span>
+  </div>
+  <img class="hero-img" src="images/3D_Render_Front.png" alt="RoomIQ PCB front render">
+</div>
+
+<!-- Stats -->
+<div class="stats">
+  <div class="stat"><div class="stat-val">5</div><div class="stat-label">Sensor Channels</div></div>
+  <div class="stat"><div class="stat-val">2</div><div class="stat-label">PCB Layers</div></div>
+  <div class="stat"><div class="stat-val">3</div><div class="stat-label">Alert Tiers</div></div>
+  <div class="stat"><div class="stat-val">5 s</div><div class="stat-label">Poll Interval</div></div>
+  <div class="stat"><div class="stat-val">~$60</div><div class="stat-label">Unit BOM Cost</div></div>
+  <div class="stat"><div class="stat-val">12-bit</div><div class="stat-label">ADC Resolution</div></div>
+</div>
+
+<!-- Board -->
+<section id="board">
+  <div class="section-label">Hardware</div>
+  <h2>Board</h2>
+  <p class="lead">
+    Partitioned into five functional zones — power, MCU, digital sensors, analog front-end,
+    and display — with a solid GND copper pour on the bottom layer acting as an RF and analog shield.
+  </p>
+  <div class="board-grid">
+    <div class="board-card">
+      <img src="images/3D_Render_Front.png" alt="Front render">
+      <div class="board-card-label">3D Render — Component Side</div>
+    </div>
+    <div class="board-card">
+      <img src="images/3D_Render_Back.png" alt="Back render">
+      <div class="board-card-label">3D Render — Routing Side</div>
+    </div>
+    <div class="board-card">
+      <img src="images/PCB_Top_Layer.png" alt="Top copper layer">
+      <div class="board-card-label">Top Copper + Silkscreen</div>
+    </div>
+    <div class="board-card">
+      <img src="images/PCB_Bottom_Layer.png" alt="Bottom copper layer">
+      <div class="board-card-label">Bottom GND Pour</div>
+    </div>
+  </div>
+</section>
+
+<hr>
+
+<!-- Schematic -->
+<section id="schematic">
+  <div class="section-label">Schematic</div>
+  <h2>Schematic</h2>
+  <p class="lead">
+    Designed in EasyEDA. Key areas: USB-C ESD protection, ESP32-C6 decoupling,
+    shared I²C sensor cluster, analog mic front-end, and BSS138 level-shifter for the WS2812B.
+  </p>
+
+  <div class="schematic-embed">
+    <iframe src="hardware/Schematic.pdf#view=FitH" title="RoomIQ Schematic"></iframe>
+  </div>
+
+  <div class="callouts">
+    <div class="callout">
+      <div class="callout-title">WS2812B Level Shift</div>
+      <p>ESP32-C6 V<sub>OH</sub> at light load (~3.0–3.1 V) falls below the WS2812B 3.5 V V<sub>IH</sub> threshold. A BSS138 N-MOSFET on IO8 shifts the data line to 5 V VBUS.</p>
+    </div>
+    <div class="callout">
+      <div class="callout-title">SCD40 Single-Supply</div>
+      <p>VDD and VDDH are tied to 3.3 V on the PCB per Sensirion's single-supply guidance, eliminating the need for a separate 5 V sensor rail.</p>
+    </div>
+    <div class="callout">
+      <div class="callout-title">USB-C Termination</div>
+      <p>5.1 kΩ CC pull-downs advertise 5 V / 0.9 A sink. 27 Ω series resistors on D+/D− provide USB 2.0 stub termination. RLSD52A051UC protects all four data lines.</p>
+    </div>
+    <div class="callout">
+      <div class="callout-title">Button Debounce</div>
+      <p>10 kΩ pull-up + 100 nF RC (τ = 1 ms) on each of the three user buttons, the BOOT strapping pin, and the RESET (EN) line.</p>
+    </div>
+  </div>
+</section>
+
+<hr>
+
+<!-- PCB Layers -->
+<section id="layers">
+  <div class="section-label">PCB Layout</div>
+  <h2>Layer Stack</h2>
+  <p class="lead">
+    Two-layer board, 96.5 × 63.5 mm. Top layer carries all signal traces.
+    Bottom layer is a solid GND pour — no signal routing crosses the analog zone.
+  </p>
+  <div class="layers-grid">
+    <div class="layer-card">
+      <img src="images/PCB_Top_Layer.png" alt="Top layer">
+      <div class="layer-info">
+        <div class="layer-name top">Top Layer — Signal</div>
+        <p>All traces routed on top copper. Analog zone (lower-right) is physically isolated — no digital crossings. SPI bus length-matched ±5 mm. I²C stubs kept under 10 cm total.</p>
+      </div>
+    </div>
+    <div class="layer-card">
+      <img src="images/PCB_Bottom_Layer.png" alt="Bottom layer">
+      <div class="layer-info">
+        <div class="layer-name bot">Bottom Layer — GND</div>
+        <p>Solid copper pour tied to digital GND near the LDO. Acts as an RF shield under the ESP32 antenna and an analog shield under the mic front-end. Bypass cap vias drop directly into the pour.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr>
+
+<!-- Sensors -->
+<section id="sensors">
+  <div class="section-label">Sensors</div>
+  <h2>Five Channels, One Board</h2>
+  <p class="lead">
+    Three calibrated I²C sensors share a 100 kHz bus. Acoustic noise goes through a custom analog front-end before hitting the ESP32's 12-bit ADC.
+  </p>
+  <div class="sensor-grid">
+    <div class="sensor-card">
+      <div class="sensor-icon">🌡️</div>
+      <div class="sensor-param">Temperature & Humidity</div>
+      <div class="sensor-name">Sensirion SHT41</div>
+      <div class="sensor-spec">±0.2 °C / ±1.8 % RH</div>
+      <div class="sensor-spec">I²C 0x44 · DFN-4</div>
+      <span class="sensor-std">ASHRAE 55-2023</span>
+    </div>
+    <div class="sensor-card">
+      <div class="sensor-icon">💨</div>
+      <div class="sensor-param">CO₂ Concentration</div>
+      <div class="sensor-name">Sensirion SCD40</div>
+      <div class="sensor-spec">±50 ppm + 5 % (400–2000 ppm)</div>
+      <div class="sensor-spec">I²C 0x62 · Photoacoustic NDIR</div>
+      <span class="sensor-std">WELL v2 &lt; 800 ppm</span>
+    </div>
+    <div class="sensor-card">
+      <div class="sensor-icon">💡</div>
+      <div class="sensor-param">Ambient Light</div>
+      <div class="sensor-name">TI OPT3001</div>
+      <div class="sensor-spec">0.01 – 83,865 lux · 23-bit</div>
+      <div class="sensor-spec">I²C 0x45 · &gt;99 % IR rejection</div>
+      <span class="sensor-std">WELL v2 ≥ 300 lux</span>
+    </div>
+    <div class="sensor-card">
+      <div class="sensor-icon">🔊</div>
+      <div class="sensor-param">Acoustic Noise</div>
+      <div class="sensor-name">S15OT421 + MCP6001</div>
+      <div class="sensor-spec">59 dB SNR · 130 dBSPL AOP</div>
+      <div class="sensor-spec">Analog · ADC1_CH0</div>
+      <span class="sensor-std">WELL v2 &lt; 35 dBA</span>
+    </div>
+  </div>
+</section>
+
+<hr>
+
+<!-- Signal Chain -->
+<section id="signal-chain">
+  <div class="section-label">Analog Design</div>
+  <h2>Microphone Signal Chain</h2>
+  <p class="lead">
+    The acoustic path is the most involved part of the design. Five stages convert acoustic pressure into a 12-bit value centered in the ADC's linear range.
+  </p>
+
+  <div class="chain">
+    <div class="chain-step">
+      <div class="chain-box highlight">S15OT421</div>
+      <div class="chain-sub">MEMS mic</div>
+    </div>
+    <div class="chain-arrow">→</div>
+    <div class="chain-step">
+      <div class="chain-box">HPF</div>
+      <div class="chain-sub">10 µF + 1 kΩ<br>f<sub>c</sub> ≈ 16 Hz</div>
+    </div>
+    <div class="chain-arrow">→</div>
+    <div class="chain-step">
+      <div class="chain-box highlight">MCP6001</div>
+      <div class="chain-sub">Av = 100× (+40 dB)<br>Bias 1.65 V</div>
+    </div>
+    <div class="chain-arrow">→</div>
+    <div class="chain-step">
+      <div class="chain-box">AAF</div>
+      <div class="chain-sub">390 Ω + 100 nF<br>f<sub>c</sub> ≈ 4.08 kHz</div>
+    </div>
+    <div class="chain-arrow">→</div>
+    <div class="chain-step">
+      <div class="chain-box highlight">ADC1_CH0</div>
+      <div class="chain-sub">12-bit SAR<br>ATTEN2 · 0–1.9 V</div>
+    </div>
+  </div>
+
+  <div class="chain-detail">
+    <div class="chain-row">
+      <div class="chain-num">1</div>
+      <div class="chain-row-body">
+        <div class="chain-row-title">MEMS Microphone</div>
+        <div class="chain-row-desc">−42 dBV/Pa sensitivity at 1 kHz. Bottom-port SMD package. 130 dBSPL acoustic overload point. 3.3 V supply with 100 nF local bypass.</div>
+      </div>
+    </div>
+    <div class="chain-row">
+      <div class="chain-num">2</div>
+      <div class="chain-row-body">
+        <div class="chain-row-title">High-Pass Filter</div>
+        <div class="chain-row-desc">AC coupling blocks the mic's internal DC bias while passing the full audio band from 16 Hz upward.</div>
+      </div>
+    </div>
+    <div class="chain-row">
+      <div class="chain-num">3</div>
+      <div class="chain-row-body">
+        <div class="chain-row-title">Inverting Amplifier</div>
+        <div class="chain-row-desc">MCP6001 with R<sub>f</sub>/R<sub>in</sub> = 100 k/1 k for +40 dB gain. V+ biased at VDD/2 = 1.65 V so the output centers in the ADC range. 100 pF feedback cap rolls off at 15.9 kHz.</div>
+      </div>
+    </div>
+    <div class="chain-row">
+      <div class="chain-num">4</div>
+      <div class="chain-row-body">
+        <div class="chain-row-title">Anti-Alias Filter</div>
+        <div class="chain-row-desc">390 Ω + 100 nF RC (f<sub>c</sub> ≈ 4.08 kHz) placed between the op-amp output and ADC input. Isolates op-amp Z<sub>out</sub> from the ADC's switched-capacitor input.</div>
+      </div>
+    </div>
+    <div class="chain-row">
+      <div class="chain-num">5</div>
+      <div class="chain-row-body">
+        <div class="chain-row-title">12-bit ADC</div>
+        <div class="chain-row-desc">At 60 dBSPL the signal swings ≈ 1.55–1.75 V — centered within ATTEN2's 0–1.9 V range. Firmware flags near-rail samples to detect clipping on loud transients.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr>
+
+<!-- Firmware -->
+<section id="firmware">
+  <div class="section-label">Firmware</div>
+  <h2>State Machine</h2>
+  <p class="lead">
+    Five states managed by a non-blocking, time-sliced loop. Sensors poll every 5 s;
+    SD logging and Wi-Fi push decouple to every 60 s to protect the LDO thermal budget.
+  </p>
+
+  <div class="state-machine">
+    <pre>
+                Power-On / EN Reset
+                       │
+                       ▼
+                ┌─────────────┐
+                │    BOOT     │  Init GPIO, SPI, I²C, RMT, LEDC
+                │             │  Mount SD · Read NVS
+                └──────┬──────┘
+               valid   │   empty
+                 ┌─────┘     └──────────────┐
+                 │                          ▼
+                 │                   ┌─────────────┐
+                 │                   │   CONFIG    │  softAP + captive portal
+                 │                   │             │  Collect creds + thresholds
+                 │                   └──────┬──────┘
+                 └──────────────────────────┘
+                                     │
+                                     ▼
+                              ┌─────────────┐  BTN_A  ┌─────────────┐
+                              │    SENSE    │─────────►│   DISPLAY   │
+                              │  Poll 5 s   │◄─────────│  3 views    │
+                              │  Log 60 s   │  30s idle│             │
+                              └─────────────┘          └──────┬──────┘
+                                                              │ BTN_B
+                                                              ▼
+                                                       ┌─────────────┐
+                                                       │    SLEEP    │
+                                                       │  60 s rate  │
+                                                       │  Light-sleep│
+                                                       └─────────────┘</pre>
+  </div>
+</section>
+
+<hr>
+
+<!-- Thresholds -->
+<section id="thresholds">
+  <div class="section-label">Alert Logic</div>
+  <h2>Three-Tier Thresholds</h2>
+  <p class="lead">
+    User limits → ASHRAE 55-2023 → WELL v2. Distinguishes discomfort from genuinely unsafe conditions.
+  </p>
+  <table class="threshold-table">
+    <thead>
+      <tr>
+        <th>Parameter</th>
+        <th>ASHRAE 55-2023</th>
+        <th>WELL v2</th>
+        <th>Alert</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="param-name">Temperature</span></td>
+        <td>20–26 °C (operative)</td>
+        <td>20–25 °C</td>
+        <td><span class="alert-badge alert-amber">● Amber banner + yellow LED</span></td>
+      </tr>
+      <tr>
+        <td><span class="param-name">Humidity</span></td>
+        <td>30–70 % RH</td>
+        <td>30–60 % RH</td>
+        <td><span class="alert-badge alert-amber">● Amber banner + yellow LED</span></td>
+      </tr>
+      <tr>
+        <td><span class="param-name">CO₂</span></td>
+        <td>1000 ppm (proxy)</td>
+        <td>&lt; 800 ppm</td>
+        <td><span class="alert-badge alert-red">● Red LED + force wake</span></td>
+      </tr>
+      <tr>
+        <td><span class="param-name">Illuminance</span></td>
+        <td>— (informational)</td>
+        <td>≥ 300 lux task area</td>
+        <td><span class="alert-badge alert-amber">● Amber display highlight</span></td>
+      </tr>
+      <tr>
+        <td><span class="param-name">Noise</span></td>
+        <td>&lt; 45 dBA office</td>
+        <td>&lt; 35 dBA background</td>
+        <td><span class="alert-badge alert-yellow">● Yellow LED + log event</span></td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<hr>
+
+<!-- Footer -->
+<footer>
+  <div>Designed in EasyEDA &nbsp;·&nbsp; Fabricated at JLCPCB &nbsp;·&nbsp; ECE 4275: Microelectronic Systems</div>
+  <div class="footer-links">
+    <a href="https://github.com/out-of-mana8/RoomIQ">GitHub</a>
+    <a href="hardware/Schematic.pdf">Schematic PDF</a>
+    <a href="hardware/Drawings.pdf">PCB Drawings</a>
+    <a href="hardware/BOM.xlsx">BOM</a>
+    <a href="hardware/Gerber.zip">Gerber Files</a>
+  </div>
+</footer>
+
+</body>
+</html>
