@@ -1,0 +1,2 @@
+# Tell GitHub linguist to exclude the portfolio page from language stats
+index.html linguist-documentation=true
