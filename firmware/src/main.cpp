@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <WiFi.h>
 #include "config.h"
 #include "nvs_cfg.h"
 #include "sensors.h"

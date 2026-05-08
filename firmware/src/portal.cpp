@@ -3,6 +3,7 @@
 #include "config.h"
 #include <WiFi.h>
 #include <Arduino.h>
+#include <string.h>
 
 CaptivePortal portal;
 

@@ -196,21 +196,22 @@ void Dashboard::serveRoot() {
 }
 
 void Dashboard::serveData() {
-    // Null values for sensors that haven't returned a valid reading yet
-    char json[256];
+    // Build each value string first — avoids dangling-pointer UB from
+    // passing temporary String().c_str() directly into snprintf().
+    char s_temp[12], s_hum[12], s_co2[12], s_lux[12];
+    if (_latest.temp_ok) snprintf(s_temp, sizeof(s_temp), "%.1f", _latest.temp_C);
+    else                 snprintf(s_temp, sizeof(s_temp), "null");
+    if (_latest.hum_ok)  snprintf(s_hum,  sizeof(s_hum),  "%.1f", _latest.humidity);
+    else                 snprintf(s_hum,  sizeof(s_hum),  "null");
+    if (_latest.co2_ok)  snprintf(s_co2,  sizeof(s_co2),  "%u",   _latest.co2_ppm);
+    else                 snprintf(s_co2,  sizeof(s_co2),  "null");
+    if (_latest.lux_ok)  snprintf(s_lux,  sizeof(s_lux),  "%.1f", _latest.lux);
+    else                 snprintf(s_lux,  sizeof(s_lux),  "null");
+
+    char json[128];
     snprintf(json, sizeof(json),
-             "{"
-             "\"temp\":%s,"
-             "\"hum\":%s,"
-             "\"co2\":%s,"
-             "\"lux\":%s,"
-             "\"spl\":%.1f"
-             "}",
-             _latest.temp_ok ? String(_latest.temp_C,   1).c_str() : "null",
-             _latest.hum_ok  ? String(_latest.humidity, 1).c_str() : "null",
-             _latest.co2_ok  ? String(_latest.co2_ppm).c_str()     : "null",
-             _latest.lux_ok  ? String(_latest.lux,      1).c_str() : "null",
-             _latest.spl_dBA);
+             "{\"temp\":%s,\"hum\":%s,\"co2\":%s,\"lux\":%s,\"spl\":%.1f}",
+             s_temp, s_hum, s_co2, s_lux, _latest.spl_dBA);
 
     _http.sendHeader("Cache-Control", "no-cache");
     _http.send(200, "application/json", json);
