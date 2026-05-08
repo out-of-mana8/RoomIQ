@@ -80,41 +80,63 @@ Key design decisions captured in the schematic:
 
 ## Firmware
 
-The firmware runs a five-state machine: **BOOT → SENSE → DISPLAY → SLEEP**, with **CONFIG** mode entered on first boot or via a long-press of BTN_C. In CONFIG, the ESP32 brings up a soft access point and serves a captive portal for setting Wi-Fi credentials and comfort thresholds, which are written to NVS flash.
+Built with PlatformIO (Arduino framework). Source lives in [`firmware/src/`](firmware/src/).
+
+### Boot Flow
 
 ```
-                Power-On / EN Reset
-                       │
-                       ▼
-                ┌─────────────┐
-                │    BOOT     │  Init GPIO, SPI, I²C, RMT, LEDC
-                │             │  Mount SD · Read NVS
-                └──────┬──────┘
-               valid   │   empty
-                 ┌─────┘     └──────────────┐
-                 │                          ▼
-                 │                   ┌─────────────┐
-                 │                   │   CONFIG    │  softAP + captive portal
-                 │                   │             │  Write creds + thresholds
-                 │                   └──────┬──────┘
-                 └──────────────────────────┘
-                                     │
-                                     ▼
-                              ┌─────────────┐  BTN_A  ┌─────────────┐
-                              │    SENSE    │─────────►│   DISPLAY   │
-                              │  Poll 5 s   │◄─────────│  3 views    │
-                              │  Log 60 s   │  30s idle│             │
-                              └─────────────┘          └──────┬──────┘
-                                                              │ BTN_B
-                                                              ▼
-                                                       ┌─────────────┐
-                                                       │    SLEEP    │
-                                                       │  60 s rate  │
-                                                       │  Light-sleep│
-                                                       └─────────────┘
+Power-On / EN Reset
+        │
+        ▼
+   Read NVS flash
+        │
+   configured?
+   ┌────┴────┐
+  no        yes
+   │         │
+   ▼         ▼
+CONFIG     connect to saved WiFi
+           (20 s timeout → wipe NVS + restart)
+  softAP        │
+  "RoomIQ-      ▼
+   Setup"    NORMAL MODE
+  DNS →      HTTP server on port 80
+  192.168    │
+  .4.1       ├─ GET  /          → live IEQ dashboard
+             ├─ GET  /api/data  → JSON sensor readings
+             └─ POST /reset     → wipe NVS + restart
 ```
 
-In SENSE, the polling loop runs every 5 seconds. Digital I²C sensors are read synchronously; the microphone uses a background-filled DMA buffer that firmware retrieves and applies digital A-weighting to compute dBA. Display and LED are updated immediately. SD logging and Wi-Fi JSON push are decoupled to every 60 seconds — averaged over the 12 intervening readings — to protect the LDO's thermal budget from frequent Wi-Fi TX spikes and to reduce SD flash write cycles.
+**CONFIG mode** — The device raises a `RoomIQ-Setup` access point (no password). DNS redirects every hostname to 192.168.4.1 so the captive portal pops up automatically on phones. The setup form collects Wi-Fi SSID + password and five comfort thresholds, saves them to NVS flash, then restarts.
+
+**Normal mode** — Sensors are polled every 5 seconds. The web dashboard at the device's IP auto-refreshes with colour-coded cards (green / amber / red) evaluated against the stored thresholds. Hold BTN_C for 3 seconds to wipe NVS and re-enter setup.
+
+### Getting Started
+
+**Dependencies** (PlatformIO installs automatically from `platformio.ini`):
+- `adafruit/Adafruit SHT4x Library`
+- `sensirion/Sensirion I2C SCD4x`
+
+```bash
+# Clone and open in VS Code with PlatformIO extension
+git clone https://github.com/out-of-mana8/RoomIQ
+cd RoomIQ/firmware
+
+# Build + flash (board auto-detected via USB-JTAG)
+pio run --target upload
+
+# Monitor serial output
+pio device monitor
+```
+
+**First boot:**
+1. Connect the board via USB-C — serial output confirms boot state
+2. Join the `RoomIQ-Setup` Wi-Fi network on your phone
+3. The setup page opens automatically; enter your Wi-Fi credentials and thresholds
+4. The board restarts, connects to your network, and prints its IP address over serial
+5. Open that IP in a browser
+
+**SPL calibration:** `MIC_REF_COUNTS` in [`firmware/src/sensors.cpp`](firmware/src/sensors.cpp) is pre-calculated from the signal chain math (1302 counts ≈ 94 dBSPL). Tune this value against a calibrated SPL meter for accurate readings on your specific board.
 
 ---
 
@@ -159,16 +181,26 @@ Single-unit cost is approximately **$58–65 USD**. The two dominant line items 
 ```
 RoomIQ/
 ├── README.md
+├── index.html              ← GitHub Pages portfolio site
 ├── images/
 │   ├── 3D_Render_Front.png
 │   ├── 3D_Render_Back.png
 │   ├── PCB_Top_Layer.png
 │   └── PCB_Bottom_Layer.png
-└── hardware/
-    ├── Schematic.pdf
-    ├── Drawings.pdf
-    ├── Gerber.zip          ← JLCPCB-ready, order directly
-    └── BOM.xlsx
+├── hardware/
+│   ├── Schematic.pdf
+│   ├── Drawings.pdf
+│   ├── Gerber.zip          ← JLCPCB-ready, order directly
+│   └── BOM.xlsx
+└── firmware/
+    ├── platformio.ini
+    └── src/
+        ├── main.cpp        ← setup() / loop() / state machine
+        ├── config.h        ← pin definitions, timing constants
+        ├── nvs_cfg.h/.cpp  ← NVS Preferences wrapper
+        ├── sensors.h/.cpp  ← SHT41, SCD40, OPT3001, mic ADC
+        ├── portal.h/.cpp   ← SoftAP + DNS + captive portal form
+        └── dashboard.h/.cpp← WiFi connect + HTTP IEQ dashboard
 ```
 
 **Component datasheets:** [ESP32-C6](https://www.espressif.com/sites/default/files/documentation/esp32-c6_datasheet_en.pdf) · [SCD40](https://sensirion.com/media/documents/48C4B7FB/64C134E7/Sensirion_SCD4x_Datasheet.pdf) · [SHT41](https://sensirion.com/media/documents/33C09C07/622B9FC5/Datasheet_SHT4x.pdf) · [OPT3001](https://www.ti.com/lit/ds/symlink/opt3001.pdf) · [MCP6001](https://ww1.microchip.com/downloads/en/DeviceDoc/MCP6001-1R-1U-2-4-1-MHz-Low-Power-Op-Amp-DS20001733L.pdf) · [WS2812B-4020](https://cdn-shop.adafruit.com/product-files/4684/4684_WS2812B-4020.pdf) · [AP7361C](https://www.diodes.com/assets/Datasheets/AP7361C.pdf)
